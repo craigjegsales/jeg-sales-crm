@@ -43,8 +43,13 @@ export default function Dashboard({ user }) {
   return (
     <div className="page">
       <div className="page-header">
-        <div className="page-title">Dashboard</div>
-        <div className="page-subtitle">Welcome back, {user?.email?.split('@')[0]}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/JEG-Icon.png" alt="JEG" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+          <div>
+            <div className="page-title">Dashboard</div>
+            <div className="page-subtitle">Welcome back, {user?.email?.split('@')[0]}</div>
+          </div>
+        </div>
       </div>
 
       <div className="stats-grid" style={{ marginTop: 12 }}>
@@ -68,12 +73,12 @@ export default function Dashboard({ user }) {
 
       {overdueTasks.length > 0 && (
         <>
-          <div className="section-label" style={{ color: 'var(--danger)' }}>⚠ Overdue Tasks</div>
+          <div className="section-label" style={{ color: 'var(--danger)' }}>âš  Overdue Tasks</div>
           {overdueTasks.map(task => (
             <div className="card" key={task.id} style={{ borderColor: 'rgba(239,68,68,0.3)' }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{task.title}</div>
               <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>
-                Due {formatDate(task.due_date)} · {task.contacts ? `${task.contacts.first_name} ${task.contacts.last_name}` : task.accounts?.name || ''}
+                Due {formatDate(task.due_date)} Â· {task.contacts ? `${task.contacts.first_name} ${task.contacts.last_name}` : task.accounts?.name || ''}
               </div>
             </div>
           ))}
@@ -101,7 +106,7 @@ export default function Dashboard({ user }) {
 
       {!loading && recentActivity.length === 0 && overdueTasks.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🚀</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>ðŸš€</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Let's get started</div>
           <div style={{ fontSize: 14, marginTop: 6 }}>Add your first account or contact to begin</div>
         </div>
