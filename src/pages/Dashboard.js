@@ -43,12 +43,19 @@ export default function Dashboard({ user }) {
   return (
     <div className="page">
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/JEG-Icon.png" alt="JEG" style={{ width: 36, height: 36, objectFit: 'contain' }} />
-          <div>
-            <div className="page-title">Dashboard</div>
-            <div className="page-subtitle">Welcome back, {user?.email?.split('@')[0]}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src="/JEG-Icon.png" alt="JEG" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+            <div>
+              <div className="page-title">Dashboard</div>
+              <div className="page-subtitle">Welcome back, {user?.email?.split('@')[0]}</div>
+            </div>
           </div>
+          <button onClick={() => supabase.auth.signOut()} style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: '6px 12px', color: 'var(--text-secondary)',
+            fontSize: 12, cursor: 'pointer'
+          }}>Sign Out</button>
         </div>
       </div>
 
