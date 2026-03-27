@@ -7,17 +7,30 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
     account_id: '', city: '', state: '', notes: ''
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   async function save() {
     setSaving(true);
-    if (contact?.id) {
-      await supabase.from('contacts').update(form).eq('id', contact.id);
-    } else {
-      await supabase.from('contacts').insert(form);
+    setError('');
+    try {
+      let result;
+      if (contact?.id) {
+        result = await supabase.from('contacts').update(form).eq('id', contact.id);
+      } else {
+        result = await supabase.from('contacts').insert(form);
+      }
+      if (result.error) {
+        setError('Save failed: ' + result.error.message);
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+      onSave();
+    } catch (err) {
+      setError('Error: ' + err.message);
+      setSaving(false);
     }
-    setSaving(false);
-    onSave();
   }
 
   return (
@@ -40,7 +53,7 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
         <div className="form-group">
           <label className="form-label">Account</label>
           <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-            <option value="">— No Account —</option>
+            <option value="">â€” No Account â€”</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
@@ -68,6 +81,7 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
           <label className="form-label">Notes</label>
           <textarea className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Notes about this contact..." style={{ resize: 'vertical' }} />
         </div>
+        {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
         <button className="btn-primary" onClick={save} disabled={saving || !form.first_name || !form.last_name}>
           {saving ? 'Saving...' : 'Save Contact'}
         </button>
@@ -189,7 +203,7 @@ function CardScanModal({ accounts, onClose, onSave }) {
             <div className="form-group">
               <label className="form-label">Link to Account</label>
               <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-                <option value="">— No Account —</option>
+                <option value="">â€” No Account â€”</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
@@ -254,7 +268,7 @@ export default function Contacts() {
         </div>
       </div>
       <div className="search-bar">
-        <span style={{ color: 'var(--text-secondary)' }}>🔍</span>
+        <span style={{ color: 'var(--text-secondary)' }}>ðŸ”</span>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search contacts..." />
       </div>
       <div style={{ marginTop: 8 }}>
@@ -263,14 +277,14 @@ export default function Contacts() {
             <div className="avatar">{initials(contact)}</div>
             <div style={{ flex: 1 }}>
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
-              <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' · ' : ''}{contact.accounts?.name}</div>
+              <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' Â· ' : ''}{contact.accounts?.name}</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {contact.phone && (
-                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>📞</a>
+                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>ðŸ“ž</a>
               )}
               {contact.email && (
-                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>✉️</a>
+                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>âœ‰ï¸</a>
               )}
             </div>
           </div>
