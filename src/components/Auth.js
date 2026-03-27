@@ -28,6 +28,7 @@ export default function Auth() {
 
   return (
     <div className="auth-container">
+      <img src="/JEG-Icon.png" alt="JEG Logo" style={{ width: 80, height: 80, objectFit: 'contain', marginBottom: 12 }} />
       <div className="auth-logo">JEG CRM</div>
       <div className="auth-tagline">Sales Intelligence Platform</div>
 
@@ -55,7 +56,7 @@ export default function Auth() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               required
             />
           </div>
