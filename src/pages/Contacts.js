@@ -10,15 +10,26 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
   const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const sanitize = (f) => ({
+    ...f,
+    account_id: f.account_id || null,
+    email: f.email || null,
+    phone: f.phone || null,
+    mobile: f.mobile || null,
+    city: f.city || null,
+    state: f.state || null,
+    notes: f.notes || null,
+  });
+
   async function save() {
     setSaving(true);
     setError('');
     try {
       let result;
       if (contact?.id) {
-        result = await supabase.from('contacts').update(form).eq('id', contact.id);
+        result = await supabase.from('contacts').update(sanitize(form)).eq('id', contact.id);
       } else {
-        result = await supabase.from('contacts').insert(form);
+        result = await supabase.from('contacts').insert(sanitize(form));
       }
       if (result.error) {
         setError('Save failed: ' + result.error.message);
@@ -152,7 +163,10 @@ function CardScanModal({ accounts, onClose, onSave }) {
   async function saveContact() {
     setSaving(true);
     const { company, website, ...contactData } = form;
-    await supabase.from('contacts').insert(contactData);
+    await supabase.from('contacts').insert({
+      ...contactData,
+      account_id: contactData.account_id || null,
+    });
     setSaving(false);
     onSave();
   }
