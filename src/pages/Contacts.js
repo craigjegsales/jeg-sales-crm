@@ -64,7 +64,7 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
         <div className="form-group">
           <label className="form-label">Account</label>
           <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-            <option value="">â€” No Account â€”</option>
+            <option value="">{'\u2014'} No Account {'\u2014'}</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
@@ -217,7 +217,7 @@ function CardScanModal({ accounts, onClose, onSave }) {
             <div className="form-group">
               <label className="form-label">Link to Account</label>
               <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-                <option value="">â€” No Account â€”</option>
+                <option value="">{'\u2014'} No Account {'\u2014'}</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
@@ -282,7 +282,7 @@ export default function Contacts() {
         </div>
       </div>
       <div className="search-bar">
-        <span style={{ color: 'var(--text-secondary)' }}>ðŸ”</span>
+        <span style={{ color: 'var(--text-secondary)' }}>{'\uD83D\uDD0D'}</span>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search contacts..." />
       </div>
       <div style={{ marginTop: 8 }}>
@@ -291,14 +291,14 @@ export default function Contacts() {
             <div className="avatar">{initials(contact)}</div>
             <div style={{ flex: 1 }}>
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
-              <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' Â· ' : ''}{contact.accounts?.name}</div>
+              <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' \u00b7 ' : ''}{contact.accounts?.name}</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {contact.phone && (
-                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>ðŸ“ž</a>
+                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>{'\uD83D\uDCDE'}</a>
               )}
               {contact.email && (
-                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>âœ‰ï¸</a>
+                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>{'\u2709\uFE0F'}</a>
               )}
             </div>
           </div>
