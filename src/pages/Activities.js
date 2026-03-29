@@ -9,20 +9,36 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
     activity_date: new Date().toISOString().slice(0, 16)
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const sanitize = (f) => {
+    const { accounts, contacts, ...rest } = f;
+    return {
+      ...rest,
+      account_id: rest.account_id || null,
+      contact_id: rest.contact_id || null,
+      notes: rest.notes || null,
+    };
+  };
 
   async function save() {
     setSaving(true);
-    if (activity?.id) {
-      await supabase.from('activities').update(form).eq('id', activity.id);
-    } else {
-      await supabase.from('activities').insert(form);
-    }
-    setSaving(false);
-    onSave();
+    setError('');
+    try {
+      let result;
+      if (activity?.id) {
+        result = await supabase.from('activities').update(sanitize(form)).eq('id', activity.id);
+      } else {
+        result = await supabase.from('activities').insert(sanitize(form));
+      }
+      if (result.error) { setError('Save failed: ' + result.error.message); setSaving(false); return; }
+      setSaving(false);
+      onSave();
+    } catch (err) { setError('Error: ' + err.message); setSaving(false); }
   }
 
-  const typeEmoji = { Call: '📞', Visit: '🏢', Email: '✉️', Note: '📝', Demo: '🎯' };
+  const typeEmoji = { Call: '\uD83D\uDCDE', Visit: '\uD83C\uDFE2', Email: '\u2709\uFE0F', Note: '\uD83D\uDCDD', Demo: '\uD83C\uDFAF' };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -50,15 +66,15 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
         </div>
         <div className="form-group">
           <label className="form-label">Account</label>
-          <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-            <option value="">— No Account —</option>
+          <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
+            <option value="">{'\u2014'} No Account {'\u2014'}</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label className="form-label">Contact</label>
-          <select className="form-select" value={form.contact_id} onChange={e => set('contact_id', e.target.value)}>
-            <option value="">— No Contact —</option>
+          <select className="form-select" value={form.contact_id || ''} onChange={e => set('contact_id', e.target.value)}>
+            <option value="">{'\u2014'} No Contact {'\u2014'}</option>
             {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </select>
         </div>
@@ -68,8 +84,10 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
         </div>
         <div className="form-group">
           <label className="form-label">Notes</label>
-          <textarea className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} rows={4} placeholder="What happened? Next steps?" style={{ resize: 'vertical' }} />
+          <textarea className="form-input" value={form.notes || ''} onChange={e => set('notes', e.target.value)} rows={4} placeholder="What happened? Next steps?" style={{ resize: 'vertical' }} />
         </div>
+
+        {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
 
         <button className="btn-primary" onClick={save} disabled={saving || !form.subject}>
           {saving ? 'Saving...' : 'Save Activity'}
@@ -102,7 +120,7 @@ export default function Activities() {
 
   const filtered = activities.filter(a => typeFilter === 'All' || a.type === typeFilter);
 
-  const typeEmoji = { Call: '📞', Visit: '🏢', Email: '✉️', Note: '📝', Demo: '🎯' };
+  const typeEmoji = { Call: '\uD83D\uDCDE', Visit: '\uD83C\uDFE2', Email: '\u2709\uFE0F', Note: '\uD83D\uDCDD', Demo: '\uD83C\uDFAF' };
 
   const formatDate = (d) => {
     const date = new Date(d);
@@ -136,7 +154,7 @@ export default function Activities() {
 
       {filtered.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>{'\uD83D\uDCCB'}</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>No activity yet</div>
           <div style={{ fontSize: 14, marginTop: 6 }}>Log calls, visits, and emails here</div>
         </div>
@@ -145,11 +163,11 @@ export default function Activities() {
       <div>
         {filtered.map(activity => (
           <div key={activity.id} className="list-item" onClick={() => { setSelected(activity); setShowModal(true); }}>
-            <div style={{ fontSize: 28, flexShrink: 0 }}>{typeEmoji[activity.type] || '📝'}</div>
+            <div style={{ fontSize: 28, flexShrink: 0 }}>{typeEmoji[activity.type] || '\uD83D\uDCDD'}</div>
             <div style={{ flex: 1 }}>
               <div className="item-name" style={{ fontSize: 14 }}>{activity.subject}</div>
               <div className="item-sub">
-                {activity.accounts?.name || ''}{activity.contacts ? ` · ${activity.contacts.first_name} ${activity.contacts.last_name}` : ''}
+                {activity.accounts?.name || ''}{activity.contacts ? ` \u00b7 ${activity.contacts.first_name} ${activity.contacts.last_name}` : ''}
               </div>
               {activity.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '220px' }}>{activity.notes}</div>}
             </div>
