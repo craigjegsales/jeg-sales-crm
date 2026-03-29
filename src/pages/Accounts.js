@@ -19,13 +19,15 @@ function CategoryDetail({ category, onBack }) {
   async function loadContacts() {
     setLoading(true);
     // First get the account ID for this category name
-    const { data: account } = await supabase
+    const { data: accountRows } = await supabase
       .from('accounts')
       .select('id')
       .eq('name', category.name)
-      .single();
+      .limit(1);
 
-    if (!account) { setLoading(false); return; }
+    if (!accountRows || accountRows.length === 0) { setLoading(false); return; }
+    const account = accountRows[0];
+    console.log('Category:', category.name, 'Account ID:', account.id);
 
     // Then get contacts for that account
     const { data } = await supabase
