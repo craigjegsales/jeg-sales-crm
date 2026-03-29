@@ -9,33 +9,24 @@ const CATEGORIES = [
 ];
 
 // â”€â”€ Category Detail View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function CategoryDetail({ category, onBack }) {
+function CategoryDetail({ category, accountId, onBack }) {
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadContacts(); }, [category.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (accountId) loadContacts();
+    else setLoading(false);
+  }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadContacts() {
     setLoading(true);
-    // First get the account ID for this category name
-    const { data: accountRows } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('name', category.name)
-      .limit(1);
-
-    if (!accountRows || accountRows.length === 0) { setLoading(false); return; }
-    const account = accountRows[0];
-    console.log('Category:', category.name, 'Account ID:', account.id);
-
-    // Then get contacts for that account
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('contacts')
       .select('id, first_name, last_name, title, phone, email')
-      .eq('account_id', account.id)
+      .eq('account_id', accountId)
       .order('last_name');
-
+    console.log('Contacts for', category.name, ':', data, error);
     setContacts(data || []);
     setLoading(false);
   }
@@ -72,7 +63,12 @@ function CategoryDetail({ category, onBack }) {
             Loading...
           </div>
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && !accountId && (
+          <div style={{ color: 'var(--danger)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>
+            Could not find this category. Try refreshing.
+          </div>
+        )}
+        {!loading && accountId && filtered.length === 0 && (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>
             No contacts in this category yet. Add a contact and set their account to {category.name}.
           </div>
@@ -84,9 +80,7 @@ function CategoryDetail({ category, onBack }) {
             </div>
             <div style={{ flex: 1 }}>
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
-              <div className="item-sub">
-                {contact.title || ''}
-              </div>
+              {contact.title && <div className="item-sub">{contact.title}</div>}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {contact.phone && (
@@ -105,29 +99,40 @@ function CategoryDetail({ category, onBack }) {
 
 // â”€â”€ Accounts List (Category Folders) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Accounts() {
-  const [counts, setCounts] = useState({});
+  const [categoryData, setCategoryData] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [activeAccountId, setActiveAccountId] = useState(null);
 
-  useEffect(() => { loadCounts(); }, []);
+  useEffect(() => { load(); }, []);
 
-  async function loadCounts() {
-    // Get all 4 category accounts with their contact counts
-    const { data: accounts } = await supabase
+  async function load() {
+    const { data: accounts, error } = await supabase
       .from('accounts')
-      .select('name, contacts(id)')
+      .select('id, name, contacts(id)')
       .in('name', ['Builder', 'Architect', 'Contractor', 'Distributor']);
 
+    console.log('Accounts loaded:', accounts, error);
+
     if (!accounts) return;
-    const c = {};
-    accounts.forEach(a => { c[a.name] = a.contacts?.length || 0; });
-    setCounts(c);
+
+    // Merge with CATEGORIES to preserve order and icons
+    const merged = CATEGORIES.map(cat => {
+      const acct = accounts.find(a => a.name === cat.name);
+      return {
+        ...cat,
+        accountId: acct?.id || null,
+        count: acct?.contacts?.length || 0,
+      };
+    });
+    setCategoryData(merged);
   }
 
   if (activeCategory) {
     return (
       <CategoryDetail
         category={activeCategory}
-        onBack={() => { setActiveCategory(null); loadCounts(); }}
+        accountId={activeAccountId}
+        onBack={() => { setActiveCategory(null); setActiveAccountId(null); load(); }}
       />
     );
   }
@@ -140,10 +145,10 @@ export default function Accounts() {
       </div>
 
       <div style={{ padding: '8px 12px' }}>
-        {CATEGORIES.map(cat => (
+        {categoryData.map(cat => (
           <div
             key={cat.name}
-            onClick={() => setActiveCategory(cat)}
+            onClick={() => { setActiveCategory(cat); setActiveAccountId(cat.accountId); }}
             style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -161,7 +166,7 @@ export default function Accounts() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{cat.name}</div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                {counts[cat.name] !== undefined ? counts[cat.name] : '...'} contacts
+                {cat.count} contacts
               </div>
             </div>
             <span style={{ color: 'var(--text-secondary)', fontSize: 18 }}>{'\u203A'}</span>
