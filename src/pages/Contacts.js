@@ -10,16 +10,19 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
   const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const sanitize = (f) => ({
-    ...f,
-    account_id: f.account_id || null,
-    email: f.email || null,
-    phone: f.phone || null,
-    mobile: f.mobile || null,
-    city: f.city || null,
-    state: f.state || null,
-    notes: f.notes || null,
-  });
+  const sanitize = (f) => {
+    const { accounts, ...rest } = f;
+    return {
+      ...rest,
+      account_id: rest.account_id || null,
+      email: rest.email || null,
+      phone: rest.phone || null,
+      mobile: rest.mobile || null,
+      city: rest.city || null,
+      state: rest.state || null,
+      notes: rest.notes || null,
+    };
+  };
 
   async function save() {
     setSaving(true);
@@ -63,34 +66,34 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
         </div>
         <div className="form-group">
           <label className="form-label">Account</label>
-          <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
+          <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
             <option value="">{'\u2014'} No Account {'\u2014'}</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label className="form-label">Email</label>
-          <input className="form-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="name@company.com" />
+          <input className="form-input" type="email" value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="name@company.com" />
         </div>
         <div className="form-group">
           <label className="form-label">Phone</label>
-          <input className="form-input" type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="(555) 000-0000" />
+          <input className="form-input" type="tel" value={form.phone || ''} onChange={e => set('phone', e.target.value)} placeholder="(555) 000-0000" />
         </div>
         <div className="form-group">
           <label className="form-label">Mobile</label>
-          <input className="form-input" type="tel" value={form.mobile} onChange={e => set('mobile', e.target.value)} placeholder="(555) 000-0000" />
+          <input className="form-input" type="tel" value={form.mobile || ''} onChange={e => set('mobile', e.target.value)} placeholder="(555) 000-0000" />
         </div>
         <div className="form-group">
           <label className="form-label">City</label>
-          <input className="form-input" value={form.city} onChange={e => set('city', e.target.value)} placeholder="Dallas" />
+          <input className="form-input" value={form.city || ''} onChange={e => set('city', e.target.value)} placeholder="Dallas" />
         </div>
         <div className="form-group">
           <label className="form-label">State</label>
-          <input className="form-input" value={form.state} onChange={e => set('state', e.target.value)} placeholder="TX" maxLength={2} />
+          <input className="form-input" value={form.state || ''} onChange={e => set('state', e.target.value)} placeholder="TX" maxLength={2} />
         </div>
         <div className="form-group">
           <label className="form-label">Notes</label>
-          <textarea className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Notes about this contact..." style={{ resize: 'vertical' }} />
+          <textarea className="form-input" value={form.notes || ''} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Notes about this contact..." style={{ resize: 'vertical' }} />
         </div>
         {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
         <button className="btn-primary" onClick={save} disabled={saving || !form.first_name || !form.last_name}>
@@ -200,38 +203,38 @@ function CardScanModal({ accounts, onClose, onSave }) {
             </div>
             <div className="form-group">
               <label className="form-label">First Name</label>
-              <input className="form-input" value={form.first_name} onChange={e => set('first_name', e.target.value)} />
+              <input className="form-input" value={form.first_name || ''} onChange={e => set('first_name', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Last Name</label>
-              <input className="form-input" value={form.last_name} onChange={e => set('last_name', e.target.value)} />
+              <input className="form-input" value={form.last_name || ''} onChange={e => set('last_name', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Title</label>
-              <input className="form-input" value={form.title} onChange={e => set('title', e.target.value)} />
+              <input className="form-input" value={form.title || ''} onChange={e => set('title', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Company</label>
-              <input className="form-input" value={form.company} onChange={e => set('company', e.target.value)} />
+              <input className="form-input" value={form.company || ''} onChange={e => set('company', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Link to Account</label>
-              <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
+              <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
                 <option value="">{'\u2014'} No Account {'\u2014'}</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">Email</label>
-              <input className="form-input" value={form.email} onChange={e => set('email', e.target.value)} />
+              <input className="form-input" value={form.email || ''} onChange={e => set('email', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Phone</label>
-              <input className="form-input" value={form.phone} onChange={e => set('phone', e.target.value)} />
+              <input className="form-input" value={form.phone || ''} onChange={e => set('phone', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Mobile</label>
-              <input className="form-input" value={form.mobile} onChange={e => set('mobile', e.target.value)} />
+              <input className="form-input" value={form.mobile || ''} onChange={e => set('mobile', e.target.value)} />
             </div>
             <button className="btn-primary" onClick={saveContact} disabled={saving || !form.first_name}>
               {saving ? 'Saving...' : 'Save Contact'}
