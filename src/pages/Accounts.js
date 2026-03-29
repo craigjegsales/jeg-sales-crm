@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const TYPES = ['Builder', 'Architect', 'Contractor', 'Distributor', 'Other'];
@@ -368,7 +368,6 @@ export default function Accounts() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
-  const [selected, setSelected] = useState(null);
   const [detailAccount, setDetailAccount] = useState(null);
 
   useEffect(() => { load(); }, []);
