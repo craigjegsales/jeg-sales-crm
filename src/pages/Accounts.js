@@ -30,7 +30,7 @@ function CategoryDetail({ category, onBack }) {
     // Then get contacts for that account
     const { data } = await supabase
       .from('contacts')
-      .select('id, first_name, last_name, title, company, phone, email')
+      .select('id, first_name, last_name, title, phone, email')
       .eq('account_id', account.id)
       .order('last_name');
 
@@ -39,7 +39,7 @@ function CategoryDetail({ category, onBack }) {
   }
 
   const filtered = contacts.filter(c =>
-    `${c.first_name} ${c.last_name} ${c.company || ''} ${c.title || ''}`.toLowerCase().includes(search.toLowerCase())
+    `${c.first_name} ${c.last_name} ${c.title || ''}`.toLowerCase().includes(search.toLowerCase())
   );
 
   const initials = c => `${c.first_name[0] || ''}${c.last_name[0] || ''}`.toUpperCase();
@@ -84,8 +84,6 @@ function CategoryDetail({ category, onBack }) {
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
               <div className="item-sub">
                 {contact.title || ''}
-                {contact.title && contact.company ? ' \u00b7 ' : ''}
-                {contact.company || ''}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
