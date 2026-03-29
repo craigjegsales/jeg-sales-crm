@@ -1,12 +1,45 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
-function ContactModal({ contact, accounts, onClose, onSave }) {
+const PRODUCTS = [
+  { name: 'Typar',       color: '#f97316' },
+  { name: 'NanaWall',    color: '#a855f7' },
+  { name: 'Omega Fence', color: '#22c55e' },
+  { name: 'ABP',         color: '#3b82f6' },
+];
+
+function ProductTags({ selected = [], onChange }) {
+  function toggle(name) {
+    if (selected.includes(name)) {
+      onChange(selected.filter(p => p !== name));
+    } else {
+      onChange([...selected, name]);
+    }
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {PRODUCTS.map(p => {
+        const on = selected.includes(p.name);
+        return (
+          <button key={p.name} onClick={() => toggle(p.name)} style={{
+            padding: '6px 12px', borderRadius: 20, border: '1.5px solid ' + p.color,
+            background: on ? p.color : 'transparent',
+            color: on ? 'white' : p.color,
+            fontSize: 12, fontWeight: 600, cursor: 'pointer'
+          }}>{p.name}</button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContactModal({ contact, accounts, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(contact || {
     first_name: '', last_name: '', title: '', email: '', phone: '', mobile: '',
-    account_id: '', city: '', state: '', notes: ''
+    account_id: '', city: '', state: '', notes: '', products: []
   });
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -21,6 +54,7 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
       city: rest.city || null,
       state: rest.state || null,
       notes: rest.notes || null,
+      products: rest.products || [],
     };
   };
 
@@ -34,17 +68,17 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
       } else {
         result = await supabase.from('contacts').insert(sanitize(form));
       }
-      if (result.error) {
-        setError('Save failed: ' + result.error.message);
-        setSaving(false);
-        return;
-      }
+      if (result.error) { setError('Save failed: ' + result.error.message); setSaving(false); return; }
       setSaving(false);
       onSave();
-    } catch (err) {
-      setError('Error: ' + err.message);
-      setSaving(false);
-    }
+    } catch (err) { setError('Error: ' + err.message); setSaving(false); }
+  }
+
+  async function deleteContact() {
+    setSaving(true);
+    await supabase.from('contacts').delete().eq('id', contact.id);
+    setSaving(false);
+    onDelete();
   }
 
   return (
@@ -62,7 +96,7 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
         </div>
         <div className="form-group">
           <label className="form-label">Title</label>
-          <input className="form-input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="VP of Construction" />
+          <input className="form-input" value={form.title || ''} onChange={e => set('title', e.target.value)} placeholder="VP of Construction" />
         </div>
         <div className="form-group">
           <label className="form-label">Account</label>
@@ -92,13 +126,41 @@ function ContactModal({ contact, accounts, onClose, onSave }) {
           <input className="form-input" value={form.state || ''} onChange={e => set('state', e.target.value)} placeholder="TX" maxLength={2} />
         </div>
         <div className="form-group">
+          <label className="form-label">Product Lines</label>
+          <ProductTags selected={form.products || []} onChange={v => set('products', v)} />
+        </div>
+        <div className="form-group">
           <label className="form-label">Notes</label>
           <textarea className="form-input" value={form.notes || ''} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Notes about this contact..." style={{ resize: 'vertical' }} />
         </div>
+
         {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
+
         <button className="btn-primary" onClick={save} disabled={saving || !form.first_name || !form.last_name}>
           {saving ? 'Saving...' : 'Save Contact'}
         </button>
+
+        {contact?.id && !confirming && (
+          <button onClick={() => setConfirming(true)} style={{ width: '100%', marginTop: 10, padding: '13px', borderRadius: 12, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+            Delete Contact
+          </button>
+        )}
+
+        {confirming && (
+          <div style={{ marginTop: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid var(--danger)', borderRadius: 12, padding: 14 }}>
+            <div style={{ color: 'var(--danger)', fontSize: 14, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
+              Delete {form.first_name} {form.last_name}? This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setConfirming(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={deleteContact} disabled={saving} style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: 'var(--danger)', color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                {saving ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -154,7 +216,7 @@ function CardScanModal({ accounts, onClose, onSave }) {
         setError('Could not read card: ' + parsed.error);
       } else {
         setResult(parsed);
-        setForm({ ...parsed, account_id: '', notes: '' });
+        setForm({ ...parsed, account_id: '', notes: '', products: [] });
         stopCamera();
       }
     } catch (err) {
@@ -169,6 +231,7 @@ function CardScanModal({ accounts, onClose, onSave }) {
     await supabase.from('contacts').insert({
       ...contactData,
       account_id: contactData.account_id || null,
+      products: contactData.products || [],
     });
     setSaving(false);
     onSave();
@@ -225,6 +288,10 @@ function CardScanModal({ accounts, onClose, onSave }) {
               </select>
             </div>
             <div className="form-group">
+              <label className="form-label">Product Lines</label>
+              <ProductTags selected={form.products || []} onChange={v => set('products', v)} />
+            </div>
+            <div className="form-group">
               <label className="form-label">Email</label>
               <input className="form-input" value={form.email || ''} onChange={e => set('email', e.target.value)} />
             </div>
@@ -271,6 +338,8 @@ export default function Contacts() {
 
   const initials = c => `${c.first_name[0] || ''}${c.last_name[0] || ''}`.toUpperCase();
 
+  const productColors = { Typar: '#f97316', NanaWall: '#a855f7', 'Omega Fence': '#22c55e', ABP: '#3b82f6' };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -295,6 +364,15 @@ export default function Contacts() {
             <div style={{ flex: 1 }}>
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
               <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' \u00b7 ' : ''}{contact.accounts?.name}</div>
+              {contact.products && contact.products.length > 0 && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                  {contact.products.map(p => (
+                    <span key={p} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: productColors[p] + '22', color: productColors[p], border: '1px solid ' + productColors[p] }}>
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {contact.phone && (
@@ -314,6 +392,7 @@ export default function Contacts() {
           accounts={accounts}
           onClose={() => { setShowModal(false); setSelected(null); }}
           onSave={() => { setShowModal(false); setSelected(null); load(); }}
+          onDelete={() => { setShowModal(false); setSelected(null); load(); }}
         />
       )}
       {showScan && (
