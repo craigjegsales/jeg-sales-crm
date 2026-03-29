@@ -2,13 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const CATEGORIES = [
-  { name: 'Builder',     icon: '\uD83C\uDFD7', color: 'var(--typar)',         id: '05bbc090-9e1b-45a1-946c-7cb05ff1a8a7' },
-  { name: 'Architect',   icon: '\uD83D\uDCCD', color: 'var(--nanawall)',      id: '3e18c7a8-74f6-4ccb-93c6-ec7e3f3f2ea3' },
-  { name: 'Contractor',  icon: '\uD83D\uDD27', color: 'var(--omega)',         id: 'e07b20c7-c6c5-48f4-98b4-2395f701df8b' },
-  { name: 'Distributor', icon: '\uD83D\uDCE6', color: 'var(--abp)',           id: '0487a5e3-b382-4661-bc96-e830df10852a' },
+  { name: 'Builder',     icon: '\uD83C\uDFD7', color: 'var(--typar)' },
+  { name: 'Architect',   icon: '\uD83D\uDCCD', color: 'var(--nanawall)' },
+  { name: 'Contractor',  icon: '\uD83D\uDD27', color: 'var(--omega)' },
+  { name: 'Distributor', icon: '\uD83D\uDCE6', color: 'var(--abp)' },
 ];
 
-// â”€â”€ Category Detail View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const PRODUCT_COLORS = {
+  Typar: '#f97316',
+  NanaWall: '#a855f7',
+  'Omega Fence': '#22c55e',
+  ABP: '#3b82f6',
+};
+
 function CategoryDetail({ category, onBack }) {
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState('');
@@ -20,7 +26,7 @@ function CategoryDetail({ category, onBack }) {
     setLoading(true);
     const { data, error } = await supabase
       .from('contacts')
-      .select('id, first_name, last_name, title, phone, email')
+      .select('id, first_name, last_name, title, company, phone, email, products')
       .eq('account_id', category.id)
       .order('last_name');
     if (error) console.error('Error loading contacts:', error);
@@ -29,7 +35,7 @@ function CategoryDetail({ category, onBack }) {
   }
 
   const filtered = contacts.filter(c =>
-    `${c.first_name} ${c.last_name} ${c.title || ''}`.toLowerCase().includes(search.toLowerCase())
+    `${c.first_name} ${c.last_name} ${c.title || ''} ${c.company || ''}`.toLowerCase().includes(search.toLowerCase())
   );
 
   const initials = c => `${c.first_name[0] || ''}${c.last_name[0] || ''}`.toUpperCase();
@@ -56,13 +62,11 @@ function CategoryDetail({ category, onBack }) {
 
       <div style={{ marginTop: 8 }}>
         {loading && (
-          <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>
-            Loading...
-          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>Loading...</div>
         )}
         {!loading && filtered.length === 0 && (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>
-            No contacts in this category yet. Add a contact and set their account to {category.name}.
+            No contacts in this category yet.
           </div>
         )}
         {filtered.map(contact => (
@@ -72,7 +76,20 @@ function CategoryDetail({ category, onBack }) {
             </div>
             <div style={{ flex: 1 }}>
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
-              {contact.title && <div className="item-sub">{contact.title}</div>}
+              <div className="item-sub">
+                {contact.title || ''}
+                {contact.title && contact.company ? ' \u00b7 ' : ''}
+                {contact.company || ''}
+              </div>
+              {contact.products && contact.products.length > 0 && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                  {contact.products.map(p => (
+                    <span key={p} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: (PRODUCT_COLORS[p] || '#888') + '22', color: PRODUCT_COLORS[p] || '#888', border: '1px solid ' + (PRODUCT_COLORS[p] || '#888') }}>
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {contact.phone && (
@@ -89,7 +106,6 @@ function CategoryDetail({ category, onBack }) {
   );
 }
 
-// â”€â”€ Accounts List (Category Folders) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Accounts() {
   const [counts, setCounts] = useState({});
   const [activeCategory, setActiveCategory] = useState(null);
