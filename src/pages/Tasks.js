@@ -6,17 +6,34 @@ function TaskModal({ task, accounts, contacts, onClose, onSave }) {
     title: '', notes: '', due_date: '', account_id: '', contact_id: ''
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const sanitize = (f) => {
+    const { accounts, contacts, ...rest } = f;
+    return {
+      ...rest,
+      account_id: rest.account_id || null,
+      contact_id: rest.contact_id || null,
+      due_date: rest.due_date || null,
+      notes: rest.notes || null,
+    };
+  };
 
   async function save() {
     setSaving(true);
-    if (task?.id) {
-      await supabase.from('tasks').update(form).eq('id', task.id);
-    } else {
-      await supabase.from('tasks').insert({ ...form, completed: false });
-    }
-    setSaving(false);
-    onSave();
+    setError('');
+    try {
+      let result;
+      if (task?.id) {
+        result = await supabase.from('tasks').update(sanitize(form)).eq('id', task.id);
+      } else {
+        result = await supabase.from('tasks').insert({ ...sanitize(form), completed: false });
+      }
+      if (result.error) { setError('Save failed: ' + result.error.message); setSaving(false); return; }
+      setSaving(false);
+      onSave();
+    } catch (err) { setError('Error: ' + err.message); setSaving(false); }
   }
 
   return (
@@ -31,26 +48,28 @@ function TaskModal({ task, accounts, contacts, onClose, onSave }) {
         </div>
         <div className="form-group">
           <label className="form-label">Due Date</label>
-          <input className="form-input" type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} />
+          <input className="form-input" type="date" value={form.due_date || ''} onChange={e => set('due_date', e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">Account</label>
-          <select className="form-select" value={form.account_id} onChange={e => set('account_id', e.target.value)}>
-            <option value="">— No Account —</option>
+          <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
+            <option value="">{'\u2014'} No Account {'\u2014'}</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label className="form-label">Contact</label>
-          <select className="form-select" value={form.contact_id} onChange={e => set('contact_id', e.target.value)}>
-            <option value="">— No Contact —</option>
+          <select className="form-select" value={form.contact_id || ''} onChange={e => set('contact_id', e.target.value)}>
+            <option value="">{'\u2014'} No Contact {'\u2014'}</option>
             {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label className="form-label">Notes</label>
-          <textarea className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Additional details..." style={{ resize: 'vertical' }} />
+          <textarea className="form-input" value={form.notes || ''} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Additional details..." style={{ resize: 'vertical' }} />
         </div>
+
+        {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
 
         <button className="btn-primary" onClick={save} disabled={saving || !form.title}>
           {saving ? 'Saving...' : 'Save Task'}
@@ -106,12 +125,12 @@ export default function Tasks() {
     <div className="page">
       <div className="page-header">
         <div className="page-title">Tasks</div>
-        <div className="page-subtitle">{open.length} open · {done.length} completed</div>
+        <div className="page-subtitle">{open.length} open {'\u00b7'} {done.length} completed</div>
       </div>
 
       {open.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>{'\u2705'}</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>All caught up!</div>
           <div style={{ fontSize: 14, marginTop: 6 }}>No open tasks</div>
         </div>
@@ -129,12 +148,12 @@ export default function Tasks() {
               {(task.accounts?.name || task.contacts) && (
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>
                   {task.accounts?.name}
-                  {task.contacts && ` · ${task.contacts.first_name} ${task.contacts.last_name}`}
+                  {task.contacts && ` \u00b7 ${task.contacts.first_name} ${task.contacts.last_name}`}
                 </div>
               )}
               {task.due_date && (
                 <div style={{ fontSize: 12, marginTop: 4, color: isOverdue(task) ? 'var(--danger)' : isDueToday(task) ? 'var(--warning)' : 'var(--text-secondary)', fontWeight: isOverdue(task) || isDueToday(task) ? 600 : 400 }}>
-                  {isOverdue(task) ? '⚠ Overdue · ' : isDueToday(task) ? '📅 Today · ' : '📅 '}{formatDate(task.due_date)}
+                  {isOverdue(task) ? '\u26a0 Overdue \u00b7 ' : isDueToday(task) ? '\uD83D\uDCC5 Today \u00b7 ' : '\uD83D\uDCC5 '}{formatDate(task.due_date)}
                 </div>
               )}
               {task.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{task.notes}</div>}
@@ -150,7 +169,7 @@ export default function Tasks() {
             onClick={() => setShowCompleted(!showCompleted)}
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            {showCompleted ? '▼' : '▶'} Completed ({done.length})
+            {showCompleted ? '\u25bc' : '\u25b6'} Completed ({done.length})
           </div>
           {showCompleted && done.slice(0, 20).map(task => (
             <div key={task.id} className="card" style={{ opacity: 0.5 }}>
@@ -159,7 +178,7 @@ export default function Tasks() {
                   width: 24, height: 24, borderRadius: 6, border: '2px solid var(--success)',
                   background: 'var(--success)', cursor: 'pointer', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 14
-                }}>✓</button>
+                }}>{'\u2713'}</button>
                 <div style={{ textDecoration: 'line-through', fontSize: 14, color: 'var(--text-secondary)' }}>{task.title}</div>
               </div>
             </div>
