@@ -9,19 +9,33 @@ const CATEGORIES = [
 ];
 
 // â”€â”€ Category Detail View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function CategoryDetail({ category, accountId, onBack }) {
+function CategoryDetail({ category, onBack }) {
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadContacts(); }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadContacts(); }, [category.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadContacts() {
+    setLoading(true);
+    // First get the account ID for this category name
+    const { data: account } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('name', category.name)
+      .single();
+
+    if (!account) { setLoading(false); return; }
+
+    // Then get contacts for that account
     const { data } = await supabase
       .from('contacts')
       .select('id, first_name, last_name, title, company, phone, email')
-      .eq('account_id', accountId)
+      .eq('account_id', account.id)
       .order('last_name');
+
     setContacts(data || []);
+    setLoading(false);
   }
 
   const filtered = contacts.filter(c =>
@@ -40,7 +54,7 @@ function CategoryDetail({ category, accountId, onBack }) {
           <span style={{ fontSize: 28 }}>{category.icon}</span>
           <div>
             <div className="page-title">{category.name}</div>
-            <div className="page-subtitle">{contacts.length} contacts</div>
+            <div className="page-subtitle">{loading ? '...' : `${contacts.length} contacts`}</div>
           </div>
         </div>
       </div>
@@ -51,14 +65,19 @@ function CategoryDetail({ category, accountId, onBack }) {
       </div>
 
       <div style={{ marginTop: 8 }}>
-        {filtered.length === 0 && (
+        {loading && (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>
-            No contacts in this category yet.{'\n'}Add a contact and set their account to {category.name}.
+            Loading...
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>
+            No contacts in this category yet. Add a contact and set their account to {category.name}.
           </div>
         )}
         {filtered.map(contact => (
           <div key={contact.id} className="list-item">
-            <div className="avatar" style={{ borderColor: category.color, border: '2px solid' }}>
+            <div className="avatar" style={{ border: '2px solid ' + category.color }}>
               {initials(contact)}
             </div>
             <div style={{ flex: 1 }}>
@@ -86,46 +105,29 @@ function CategoryDetail({ category, accountId, onBack }) {
 
 // â”€â”€ Accounts List (Category Folders) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Accounts() {
-  const [accountMap, setAccountMap] = useState({});
-  const [contactCounts, setContactCounts] = useState({});
+  const [counts, setCounts] = useState({});
   const [activeCategory, setActiveCategory] = useState(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadCounts(); }, []);
 
-  async function load() {
-    // Load the 4 category accounts
+  async function loadCounts() {
+    // Get all 4 category accounts with their contact counts
     const { data: accounts } = await supabase
       .from('accounts')
-      .select('id, name')
+      .select('name, contacts(id)')
       .in('name', ['Builder', 'Architect', 'Contractor', 'Distributor']);
 
     if (!accounts) return;
-
-    // Build a map of name -> id
-    const map = {};
-    accounts.forEach(a => { map[a.name] = a.id; });
-    setAccountMap(map);
-
-    // Count contacts per category
-    const counts = {};
-    await Promise.all(
-      accounts.map(async a => {
-        const { count } = await supabase
-          .from('contacts')
-          .select('id', { count: 'exact', head: true })
-          .eq('account_id', a.id);
-        counts[a.name] = count || 0;
-      })
-    );
-    setContactCounts(counts);
+    const c = {};
+    accounts.forEach(a => { c[a.name] = a.contacts?.length || 0; });
+    setCounts(c);
   }
 
   if (activeCategory) {
     return (
       <CategoryDetail
         category={activeCategory}
-        accountId={accountMap[activeCategory.name]}
-        onBack={() => { setActiveCategory(null); load(); }}
+        onBack={() => { setActiveCategory(null); loadCounts(); }}
       />
     );
   }
@@ -159,7 +161,7 @@ export default function Accounts() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{cat.name}</div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                {contactCounts[cat.name] !== undefined ? contactCounts[cat.name] : '...'} contacts
+                {counts[cat.name] !== undefined ? counts[cat.name] : '...'} contacts
               </div>
             </div>
             <span style={{ color: 'var(--text-secondary)', fontSize: 18 }}>{'\u203A'}</span>
