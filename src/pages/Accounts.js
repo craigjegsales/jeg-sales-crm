@@ -39,7 +39,7 @@ export default function Accounts() {
     const { data: contacts } = await supabase
       .from('contacts')
       .select('id, first_name, last_name, title, company, phone, email, products, account_id')
-      .not('account_id', 'is', null);
+      .neq('account_id', null);
 
     const sorted = (accts || []).sort((a, b) => ORDER.indexOf(a.name) - ORDER.indexOf(b.name));
     setAccounts(sorted);
