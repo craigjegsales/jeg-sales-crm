@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const CATEGORIES = [
-  { name: 'Builder',     icon: '\uD83C\uDFD7', color: 'var(--typar)' },
-  { name: 'Architect',   icon: '\uD83D\uDCCD', color: 'var(--nanawall)' },
-  { name: 'Contractor',  icon: '\uD83D\uDD27', color: 'var(--omega)' },
-  { name: 'Distributor', icon: '\uD83D\uDCE6', color: 'var(--abp)' },
-];
+const CATEGORY_META = {
+  Builder:     { icon: '\uD83C\uDFD7', color: 'var(--typar)' },
+  Architect:   { icon: '\uD83D\uDCCD', color: 'var(--nanawall)' },
+  Contractor:  { icon: '\uD83D\uDD27', color: 'var(--omega)' },
+  Distributor: { icon: '\uD83D\uDCE6', color: 'var(--abp)' },
+};
 
 const PRODUCT_COLORS = {
   Typar: '#f97316',
@@ -15,10 +15,11 @@ const PRODUCT_COLORS = {
   ABP: '#3b82f6',
 };
 
-function CategoryDetail({ category, onBack }) {
+function CategoryDetail({ account, onBack }) {
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const meta = CATEGORY_META[account.name] || { icon: '\uD83C\uDFE2', color: 'var(--accent)' };
 
   useEffect(() => { loadContacts(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -27,9 +28,9 @@ function CategoryDetail({ category, onBack }) {
     const { data, error } = await supabase
       .from('contacts')
       .select('id, first_name, last_name, title, company, phone, email, products')
-      .eq('account_id', category.id)
+      .eq('account_id', account.id)
       .order('last_name');
-    if (error) console.error('Error loading contacts:', error);
+    if (error) console.error('Error:', error);
     setContacts(data || []);
     setLoading(false);
   }
@@ -47,9 +48,9 @@ function CategoryDetail({ category, onBack }) {
           {'\u2190'} Back
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 28 }}>{category.icon}</span>
+          <span style={{ fontSize: 28 }}>{meta.icon}</span>
           <div>
-            <div className="page-title">{category.name}</div>
+            <div className="page-title">{account.name}</div>
             <div className="page-subtitle">{loading ? '...' : `${contacts.length} contacts`}</div>
           </div>
         </div>
@@ -57,7 +58,7 @@ function CategoryDetail({ category, onBack }) {
 
       <div className="search-bar">
         <span style={{ color: 'var(--text-secondary)' }}>{'\uD83D\uDD0D'}</span>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${category.name.toLowerCase()}s...`} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${account.name.toLowerCase()}s...`} />
       </div>
 
       <div style={{ marginTop: 8 }}>
@@ -71,7 +72,7 @@ function CategoryDetail({ category, onBack }) {
         )}
         {filtered.map(contact => (
           <div key={contact.id} className="list-item">
-            <div className="avatar" style={{ border: '2px solid ' + category.color }}>
+            <div className="avatar" style={{ border: '2px solid ' + meta.color }}>
               {initials(contact)}
             </div>
             <div style={{ flex: 1 }}>
@@ -107,30 +108,29 @@ function CategoryDetail({ category, onBack }) {
 }
 
 export default function Accounts() {
-  const [counts, setCounts] = useState({});
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [activeAccount, setActiveAccount] = useState(null);
 
-  useEffect(() => { loadCounts(); }, []);
+  useEffect(() => { load(); }, []);
 
-  async function loadCounts() {
-    const results = {};
-    await Promise.all(
-      CATEGORIES.map(async cat => {
-        const { count } = await supabase
-          .from('contacts')
-          .select('id', { count: 'exact', head: true })
-          .eq('account_id', cat.id);
-        results[cat.name] = count || 0;
-      })
-    );
-    setCounts(results);
+  async function load() {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('id, name, contacts(id)')
+      .in('name', ['Builder', 'Architect', 'Contractor', 'Distributor'])
+      .order('name');
+    if (error) console.error('Error loading accounts:', error);
+    // Sort in our preferred order
+    const order = ['Builder', 'Architect', 'Contractor', 'Distributor'];
+    const sorted = (data || []).sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    setAccounts(sorted);
   }
 
-  if (activeCategory) {
+  if (activeAccount) {
     return (
       <CategoryDetail
-        category={activeCategory}
-        onBack={() => { setActiveCategory(null); loadCounts(); }}
+        account={activeAccount}
+        onBack={() => { setActiveAccount(null); load(); }}
       />
     );
   }
@@ -143,33 +143,36 @@ export default function Accounts() {
       </div>
 
       <div style={{ padding: '8px 12px' }}>
-        {CATEGORIES.map(cat => (
-          <div
-            key={cat.name}
-            onClick={() => setActiveCategory(cat)}
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderLeft: '4px solid ' + cat.color,
-              borderRadius: 12,
-              padding: '16px 14px',
-              marginBottom: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              cursor: 'pointer',
-            }}
-          >
-            <span style={{ fontSize: 28 }}>{cat.icon}</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{cat.name}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                {counts[cat.name] !== undefined ? counts[cat.name] : '...'} contacts
+        {accounts.map(account => {
+          const meta = CATEGORY_META[account.name] || { icon: '\uD83C\uDFE2', color: 'var(--accent)' };
+          return (
+            <div
+              key={account.id}
+              onClick={() => setActiveAccount(account)}
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderLeft: '4px solid ' + meta.color,
+                borderRadius: 12,
+                padding: '16px 14px',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 28 }}>{meta.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{account.name}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  {account.contacts?.length || 0} contacts
+                </div>
               </div>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 18 }}>{'\u203A'}</span>
             </div>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 18 }}>{'\u203A'}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
