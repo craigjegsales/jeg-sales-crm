@@ -38,7 +38,7 @@ export default function Accounts() {
     // Query 2: get ALL contacts that have an account_id
     const { data: contacts } = await supabase
       .from('contacts')
-      .select('id, first_name, last_name, title, company, phone, email, products, account_id')
+      .select('id, first_name, last_name, title, phone, email, products, account_id')
       .neq('account_id', null);
 
     const sorted = (accts || []).sort((a, b) => ORDER.indexOf(a.name) - ORDER.indexOf(b.name));
@@ -54,7 +54,7 @@ export default function Accounts() {
     const meta = CATEGORY_META[activeAccount.name] || { icon: '\uD83C\uDFE2', color: 'var(--accent)' };
     const contacts = allContacts.filter(c => c.account_id === activeAccount.id);
     const filtered = contacts.filter(c =>
-      `${c.first_name} ${c.last_name} ${c.title || ''} ${c.company || ''}`.toLowerCase().includes(search.toLowerCase())
+      `${c.first_name} ${c.last_name} ${c.title || ''}`.toLowerCase().includes(search.toLowerCase())
     );
 
     return (
@@ -92,8 +92,8 @@ export default function Accounts() {
                 <div className="item-name">{contact.first_name} {contact.last_name}</div>
                 <div className="item-sub">
                   {contact.title || ''}
-                  {contact.title && contact.company ? ' \u00b7 ' : ''}
-                  {contact.company || ''}
+                  
+                  
                 </div>
                 {contact.products && contact.products.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
