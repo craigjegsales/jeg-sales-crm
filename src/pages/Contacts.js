@@ -148,7 +148,7 @@ export default function Accounts() {
           return (
             <div
               key={account.id}
-              onClick={() => setActiveAccount(account)}
+              onClick={() => setActiveAccount({ id: account.id, name: account.name })}
               style={{
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border)',
