@@ -18,8 +18,9 @@ const PRODUCT_COLORS = {
 const ORDER = ['Builder', 'Architect', 'Contractor', 'Distributor'];
 
 export default function Accounts() {
-  const [categories, setCategories] = useState([]);
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [allContacts, setAllContacts] = useState([]);
+  const [activeAccount, setActiveAccount] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -28,41 +29,44 @@ export default function Accounts() {
   async function load() {
     setLoading(true);
 
-    // Load accounts with all their contacts in one query
-    const { data: accounts, error } = await supabase
+    // Query 1: get the 4 category accounts
+    const { data: accts } = await supabase
       .from('accounts')
-      .select('id, name, contacts(id, first_name, last_name, title, company, phone, email, products)')
+      .select('id, name')
       .in('name', ['Builder', 'Architect', 'Contractor', 'Distributor']);
 
-    if (error) console.error('Accounts error:', error);
+    // Query 2: get ALL contacts that have an account_id
+    const { data: contacts } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, title, company, phone, email, products, account_id')
+      .not('account_id', 'is', null);
 
-    const sorted = (accounts || []).sort((a, b) => ORDER.indexOf(a.name) - ORDER.indexOf(b.name));
-    setCategories(sorted);
+    const sorted = (accts || []).sort((a, b) => ORDER.indexOf(a.name) - ORDER.indexOf(b.name));
+    setAccounts(sorted);
+    setAllContacts(contacts || []);
     setLoading(false);
   }
-
-  const active = categories.find(c => c.name === activeCategory);
-  const meta = activeCategory ? CATEGORY_META[activeCategory] : null;
-
-  const contacts = active?.contacts || [];
-  const filtered = contacts.filter(c =>
-    `${c.first_name} ${c.last_name} ${c.title || ''} ${c.company || ''}`.toLowerCase().includes(search.toLowerCase())
-  );
 
   const initials = c => `${c.first_name[0] || ''}${c.last_name[0] || ''}`.toUpperCase();
 
   // ── Detail View ──────────────────────────────────────────────────
-  if (activeCategory && meta) {
+  if (activeAccount) {
+    const meta = CATEGORY_META[activeAccount.name] || { icon: '\uD83C\uDFE2', color: 'var(--accent)' };
+    const contacts = allContacts.filter(c => c.account_id === activeAccount.id);
+    const filtered = contacts.filter(c =>
+      `${c.first_name} ${c.last_name} ${c.title || ''} ${c.company || ''}`.toLowerCase().includes(search.toLowerCase())
+    );
+
     return (
       <div className="page">
         <div className="page-header">
-          <button onClick={() => { setActiveCategory(null); setSearch(''); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, cursor: 'pointer', padding: '4px 0', fontWeight: 600, marginBottom: 8 }}>
+          <button onClick={() => { setActiveAccount(null); setSearch(''); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, cursor: 'pointer', padding: '4px 0', fontWeight: 600, marginBottom: 8 }}>
             {'\u2190'} Back
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 28 }}>{meta.icon}</span>
             <div>
-              <div className="page-title">{activeCategory}</div>
+              <div className="page-title">{activeAccount.name}</div>
               <div className="page-subtitle">{contacts.length} contacts</div>
             </div>
           </div>
@@ -70,7 +74,7 @@ export default function Accounts() {
 
         <div className="search-bar">
           <span style={{ color: 'var(--text-secondary)' }}>{'\uD83D\uDD0D'}</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${activeCategory.toLowerCase()}s...`} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${activeAccount.name.toLowerCase()}s...`} />
         </div>
 
         <div style={{ marginTop: 8 }}>
@@ -128,12 +132,13 @@ export default function Accounts() {
         {loading && (
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, textAlign: 'center', padding: '32px 0' }}>Loading...</div>
         )}
-        {categories.map(cat => {
-          const m = CATEGORY_META[cat.name] || { icon: '\uD83C\uDFE2', color: 'var(--accent)' };
+        {accounts.map(acct => {
+          const m = CATEGORY_META[acct.name] || { icon: '\uD83C\uDFE2', color: 'var(--accent)' };
+          const count = allContacts.filter(c => c.account_id === acct.id).length;
           return (
             <div
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.name)}
+              key={acct.id}
+              onClick={() => setActiveAccount(acct)}
               style={{
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border)',
@@ -149,9 +154,9 @@ export default function Accounts() {
             >
               <span style={{ fontSize: 28 }}>{m.icon}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{cat.name}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{acct.name}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                  {cat.contacts?.length || 0} contacts
+                  {count} contacts
                 </div>
               </div>
               <span style={{ color: 'var(--text-secondary)', fontSize: 18 }}>{'\u203A'}</span>
