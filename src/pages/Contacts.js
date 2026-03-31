@@ -62,11 +62,12 @@ function ContactModal({ contact, accounts, onClose, onSave, onDelete }) {
     setSaving(true);
     setError('');
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       let result;
       if (contact?.id) {
         result = await supabase.from('contacts').update(sanitize(form)).eq('id', contact.id);
       } else {
-        result = await supabase.from('contacts').insert(sanitize(form));
+        result = await supabase.from('contacts').insert({ ...sanitize(form), user_id: user.id });
       }
       if (result.error) { setError('Save failed: ' + result.error.message); setSaving(false); return; }
       setSaving(false);
@@ -101,7 +102,7 @@ function ContactModal({ contact, accounts, onClose, onSave, onDelete }) {
         <div className="form-group">
           <label className="form-label">Account</label>
           <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
-            <option value="">{'\u2014'} No Account {'\u2014'}</option>
+            <option value="">-- No Account --</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
@@ -133,19 +134,15 @@ function ContactModal({ contact, accounts, onClose, onSave, onDelete }) {
           <label className="form-label">Notes</label>
           <textarea className="form-input" value={form.notes || ''} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Notes about this contact..." style={{ resize: 'vertical' }} />
         </div>
-
         {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
-
         <button className="btn-primary" onClick={save} disabled={saving || !form.first_name || !form.last_name}>
           {saving ? 'Saving...' : 'Save Contact'}
         </button>
-
         {contact?.id && !confirming && (
           <button onClick={() => setConfirming(true)} style={{ width: '100%', marginTop: 10, padding: '13px', borderRadius: 12, border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
             Delete Contact
           </button>
         )}
-
         {confirming && (
           <div style={{ marginTop: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid var(--danger)', borderRadius: 12, padding: 14 }}>
             <div style={{ color: 'var(--danger)', fontSize: 14, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
@@ -227,11 +224,13 @@ function CardScanModal({ accounts, onClose, onSave }) {
 
   async function saveContact() {
     setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
     const { company, website, ...contactData } = form;
     await supabase.from('contacts').insert({
       ...contactData,
       account_id: contactData.account_id || null,
       products: contactData.products || [],
+      user_id: user.id,
     });
     setSaving(false);
     onSave();
@@ -283,7 +282,7 @@ function CardScanModal({ accounts, onClose, onSave }) {
             <div className="form-group">
               <label className="form-label">Link to Account</label>
               <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
-                <option value="">{'\u2014'} No Account {'\u2014'}</option>
+                <option value="">-- No Account --</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
@@ -324,9 +323,10 @@ export default function Contacts() {
   useEffect(() => { load(); }, []);
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
     const [c, a] = await Promise.all([
-      supabase.from('contacts').select('*, accounts(name)').order('last_name'),
-      supabase.from('accounts').select('id, name').order('name')
+      supabase.from('contacts').select('*, accounts(name)').eq('user_id', user.id).order('last_name'),
+      supabase.from('accounts').select('id, name').eq('user_id', user.id).order('name')
     ]);
     setContacts(c.data || []);
     setAccounts(a.data || []);
@@ -337,7 +337,6 @@ export default function Contacts() {
   );
 
   const initials = c => `${c.first_name[0] || ''}${c.last_name[0] || ''}`.toUpperCase();
-
   const productColors = { Typar: '#f97316', NanaWall: '#a855f7', 'Omega Fence': '#22c55e', ABP: '#3b82f6' };
 
   return (
@@ -354,7 +353,7 @@ export default function Contacts() {
         </div>
       </div>
       <div className="search-bar">
-        <span style={{ color: 'var(--text-secondary)' }}>{'\uD83D\uDD0D'}</span>
+        <span style={{ color: 'var(--text-secondary)' }}>Search</span>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search contacts..." />
       </div>
       <div style={{ marginTop: 8 }}>
@@ -363,7 +362,7 @@ export default function Contacts() {
             <div className="avatar">{initials(contact)}</div>
             <div style={{ flex: 1 }}>
               <div className="item-name">{contact.first_name} {contact.last_name}</div>
-              <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' \u00b7 ' : ''}{contact.accounts?.name}</div>
+              <div className="item-sub">{contact.title}{contact.title && contact.accounts?.name ? ' - ' : ''}{contact.accounts?.name}</div>
               {contact.products && contact.products.length > 0 && (
                 <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
                   {contact.products.map(p => (
@@ -376,10 +375,10 @@ export default function Contacts() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {contact.phone && (
-                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>{'\uD83D\uDCDE'}</a>
+                <a href={`tel:${contact.phone}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>Call</a>
               )}
               {contact.email && (
-                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>{'\u2709\uFE0F'}</a>
+                <a href={`mailto:${contact.email}`} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontSize: 18 }}>Email</a>
               )}
             </div>
           </div>
