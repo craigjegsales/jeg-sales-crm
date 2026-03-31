@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const TYPES = ['Call', 'Visit', 'Email', 'Note', 'Demo'];
-
-function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
-  const [form, setForm] = useState(activity || {
-    type: 'Call', subject: '', notes: '', account_id: '', contact_id: '',
-    activity_date: new Date().toISOString().slice(0, 16)
+function TaskModal({ task, accounts, contacts, onClose, onSave }) {
+  const [form, setForm] = useState(task || {
+    title: '', notes: '', due_date: '', account_id: '', contact_id: ''
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -17,41 +14,31 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
       ...form,
       account_id: form.account_id || null,
       contact_id: form.contact_id || null,
+      due_date: form.due_date || null,
     };
-    if (activity?.id) {
-      await supabase.from('activities').update(cleanForm).eq('id', activity.id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (task?.id) {
+      await supabase.from('tasks').update(cleanForm).eq('id', task.id);
     } else {
-      await supabase.from('activities').insert(cleanForm);
+      await supabase.from('tasks').insert({ ...cleanForm, completed: false, user_id: user.id });
     }
     setSaving(false);
     onSave();
   }
 
-  const typeEmoji = { Call: '📞', Visit: '🏢', Email: '✉️', Note: '📝', Demo: '🎯' };
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-sheet" onClick={e => e.stopPropagation()}>
         <div className="modal-handle" />
-        <div className="modal-title">{activity?.id ? 'Edit Activity' : 'Log Activity'}</div>
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {TYPES.map(t => (
-            <button key={t} onClick={() => set('type', t)} style={{
-              flex: 1, padding: '8px 4px', borderRadius: 8, border: '1px solid ' + (form.type === t ? 'var(--accent)' : 'var(--border)'),
-              background: form.type === t ? 'rgba(46,125,247,0.15)' : 'var(--bg-card)',
-              color: form.type === t ? 'var(--accent)' : 'var(--text-secondary)',
-              cursor: 'pointer', fontSize: 11, fontWeight: 600, textAlign: 'center'
-            }}>
-              <div>{typeEmoji[t]}</div>
-              <div style={{ marginTop: 2 }}>{t}</div>
-            </button>
-          ))}
-        </div>
+        <div className="modal-title">{task?.id ? 'Edit Task' : 'New Task'}</div>
 
         <div className="form-group">
-          <label className="form-label">Subject *</label>
-          <input className="form-input" value={form.subject} onChange={e => set('subject', e.target.value)} placeholder="Discussed Typar spec inclusion..." />
+          <label className="form-label">Task *</label>
+          <input className="form-input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Follow up on Typar quote..." />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Due Date</label>
+          <input className="form-input" type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} />
         </div>
         <div className="form-group">
           <label className="form-label">Account</label>
@@ -68,106 +55,131 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
           </select>
         </div>
         <div className="form-group">
-          <label className="form-label">Date & Time</label>
-          <input className="form-input" type="datetime-local" value={form.activity_date} onChange={e => set('activity_date', e.target.value)} />
-        </div>
-        <div className="form-group">
           <label className="form-label">Notes</label>
-          <textarea className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} rows={4} placeholder="What happened? Next steps?" style={{ resize: 'vertical' }} />
+          <textarea className="form-input" value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="Additional details..." style={{ resize: 'vertical' }} />
         </div>
 
-        <button className="btn-primary" onClick={save} disabled={saving || !form.subject}>
-          {saving ? 'Saving...' : 'Save Activity'}
+        <button className="btn-primary" onClick={save} disabled={saving || !form.title}>
+          {saving ? 'Saving...' : 'Save Task'}
         </button>
       </div>
     </div>
   );
 }
 
-export default function Activities() {
-  const [activities, setActivities] = useState([]);
+export default function Tasks() {
+  const [tasks, setTasks] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [typeFilter, setTypeFilter] = useState('All');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [a, ac, c] = await Promise.all([
-      supabase.from('activities').select('*, accounts(name), contacts(first_name,last_name)').order('activity_date', { ascending: false }),
-      supabase.from('accounts').select('id,name').order('name'),
-      supabase.from('contacts').select('id,first_name,last_name').order('last_name')
+    const { data: { user } } = await supabase.auth.getUser();
+    const [t, a, c] = await Promise.all([
+      supabase.from('tasks').select('*, accounts(name), contacts(first_name,last_name)').eq('user_id', user.id).order('due_date').order('created_at', { ascending: false }),
+      supabase.from('accounts').select('id,name').eq('user_id', user.id).order('name'),
+      supabase.from('contacts').select('id,first_name,last_name').eq('user_id', user.id).order('last_name')
     ]);
-    setActivities(a.data || []);
-    setAccounts(ac.data || []);
+    setTasks(t.data || []);
+    setAccounts(a.data || []);
     setContacts(c.data || []);
   }
 
-  const filtered = activities.filter(a => typeFilter === 'All' || a.type === typeFilter);
+  async function toggleComplete(task) {
+    await supabase.from('tasks').update({
+      completed: !task.completed,
+      completed_at: !task.completed ? new Date().toISOString() : null
+    }).eq('id', task.id);
+    load();
+  }
 
-  const typeEmoji = { Call: '📞', Visit: '🏢', Email: '✉️', Note: '📝', Demo: '🎯' };
+  const today = new Date().toISOString().split('T')[0];
+  const open = tasks.filter(t => !t.completed);
+  const done = tasks.filter(t => t.completed);
+
+  const isOverdue = (t) => t.due_date && t.due_date < today && !t.completed;
+  const isDueToday = (t) => t.due_date === today;
 
   const formatDate = (d) => {
-    const date = new Date(d);
-    const now = new Date();
-    const diff = (now - date) / 1000 / 60;
-    if (diff < 60) return `${Math.round(diff)}m ago`;
-    if (diff < 1440) return `${Math.round(diff / 60)}h ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (!d) return '';
+    const date = new Date(d + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   return (
     <div className="page">
       <div className="page-header">
-        <div className="page-title">Activity</div>
-        <div className="page-subtitle">{activities.length} total logs</div>
+        <div className="page-title">Tasks</div>
+        <div className="page-subtitle">{open.length} open · {done.length} completed</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, padding: '10px 12px', overflowX: 'auto' }}>
-        {['All', ...TYPES].map(t => (
-          <button key={t} onClick={() => setTypeFilter(t)} style={{
-            background: typeFilter === t ? 'var(--accent)' : 'var(--bg-card)',
-            color: typeFilter === t ? 'white' : 'var(--text-secondary)',
-            border: '1px solid ' + (typeFilter === t ? 'var(--accent)' : 'var(--border)'),
-            borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600,
-            cursor: 'pointer', whiteSpace: 'nowrap'
-          }}>
-            {t !== 'All' && typeEmoji[t] + ' '}{t}
-          </button>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
+      {open.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>No activity yet</div>
-          <div style={{ fontSize: 14, marginTop: 6 }}>Log calls, visits, and emails here</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>All caught up!</div>
+          <div style={{ fontSize: 14, marginTop: 6 }}>No open tasks</div>
         </div>
       )}
 
-      <div>
-        {filtered.map(activity => (
-          <div key={activity.id} className="list-item" onClick={() => { setSelected(activity); setShowModal(true); }}>
-            <div style={{ fontSize: 28, flexShrink: 0 }}>{typeEmoji[activity.type] || '📝'}</div>
-            <div style={{ flex: 1 }}>
-              <div className="item-name" style={{ fontSize: 14 }}>{activity.subject}</div>
-              <div className="item-sub">
-                {activity.accounts?.name || ''}{activity.contacts ? ` · ${activity.contacts.first_name} ${activity.contacts.last_name}` : ''}
-              </div>
-              {activity.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '220px' }}>{activity.notes}</div>}
+      {open.map(task => (
+        <div key={task.id} className="card" style={{ borderColor: isOverdue(task) ? 'rgba(239,68,68,0.4)' : isDueToday(task) ? 'rgba(245,158,11,0.4)' : 'var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <button onClick={() => toggleComplete(task)} style={{
+              width: 24, height: 24, borderRadius: 6, border: '2px solid var(--border)',
+              background: 'transparent', cursor: 'pointer', flexShrink: 0, marginTop: 1
+            }} />
+            <div style={{ flex: 1 }} onClick={() => { setSelected(task); setShowModal(true); }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{task.title}</div>
+              {(task.accounts?.name || task.contacts) && (
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>
+                  {task.accounts?.name}
+                  {task.contacts && ` · ${task.contacts.first_name} ${task.contacts.last_name}`}
+                </div>
+              )}
+              {task.due_date && (
+                <div style={{ fontSize: 12, marginTop: 4, color: isOverdue(task) ? 'var(--danger)' : isDueToday(task) ? 'var(--warning)' : 'var(--text-secondary)', fontWeight: isOverdue(task) || isDueToday(task) ? 600 : 400 }}>
+                  {isOverdue(task) ? '⚠ Overdue · ' : isDueToday(task) ? '📅 Today · ' : '📅 '}{formatDate(task.due_date)}
+                </div>
+              )}
+              {task.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{task.notes}</div>}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0 }}>{formatDate(activity.activity_date)}</div>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
+
+      {done.length > 0 && (
+        <>
+          <div
+            className="section-label"
+            onClick={() => setShowCompleted(!showCompleted)}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            {showCompleted ? '▼' : '▶'} Completed ({done.length})
+          </div>
+          {showCompleted && done.slice(0, 20).map(task => (
+            <div key={task.id} className="card" style={{ opacity: 0.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button onClick={() => toggleComplete(task)} style={{
+                  width: 24, height: 24, borderRadius: 6, border: '2px solid var(--success)',
+                  background: 'var(--success)', cursor: 'pointer', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 14
+                }}>✓</button>
+                <div style={{ textDecoration: 'line-through', fontSize: 14, color: 'var(--text-secondary)' }}>{task.title}</div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
 
       <button className="fab" onClick={() => { setSelected(null); setShowModal(true); }}>+</button>
 
       {showModal && (
-        <ActivityModal
-          activity={selected}
+        <TaskModal
+          task={selected}
           accounts={accounts}
           contacts={contacts}
           onClose={() => { setShowModal(false); setSelected(null); }}
