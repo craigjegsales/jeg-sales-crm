@@ -16,10 +16,11 @@ function TaskModal({ task, accounts, contacts, onClose, onSave }) {
       contact_id: form.contact_id || null,
       due_date: form.due_date || null,
     };
+    const { data: { user } } = await supabase.auth.getUser();
     if (task?.id) {
       await supabase.from('tasks').update(cleanForm).eq('id', task.id);
     } else {
-      await supabase.from('tasks').insert({ ...cleanForm, completed: false });
+      await supabase.from('tasks').insert({ ...cleanForm, completed: false, user_id: user.id });
     }
     setSaving(false);
     onSave();
@@ -77,10 +78,11 @@ export default function Tasks() {
   useEffect(() => { load(); }, []);
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
     const [t, a, c] = await Promise.all([
-      supabase.from('tasks').select('*, accounts(name), contacts(first_name,last_name)').order('due_date').order('created_at', { ascending: false }),
-      supabase.from('accounts').select('id,name').order('name'),
-      supabase.from('contacts').select('id,first_name,last_name').order('last_name')
+      supabase.from('tasks').select('*, accounts(name), contacts(first_name,last_name)').eq('user_id', user.id).order('due_date').order('created_at', { ascending: false }),
+      supabase.from('accounts').select('id,name').eq('user_id', user.id).order('name'),
+      supabase.from('contacts').select('id,first_name,last_name').eq('user_id', user.id).order('last_name')
     ]);
     setTasks(t.data || []);
     setAccounts(a.data || []);
