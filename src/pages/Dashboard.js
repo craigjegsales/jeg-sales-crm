@@ -52,7 +52,7 @@
 
       {!loading && recentActivity.length === 0 && overdueTasks.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🚀</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>!</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Let's get started</div>
           <div style={{ fontSize: 14, marginTop: 6 }}>Add your first account or contact to begin</div>
         </div>
