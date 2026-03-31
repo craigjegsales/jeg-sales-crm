@@ -24,16 +24,17 @@ function OpportunityModal({ opp, accounts, contacts, onClose, onSave }) {
 
   async function save() {
     setSaving(true);
-    const data = { 
-      ...form, 
+    const data = {
+      ...form,
       value: form.value ? parseFloat(form.value) : null,
       account_id: form.account_id || null,
       contact_id: form.contact_id || null,
     };
+    const { data: { user } } = await supabase.auth.getUser();
     if (opp?.id) {
       await supabase.from('opportunities').update(data).eq('id', opp.id);
     } else {
-      await supabase.from('opportunities').insert(data);
+      await supabase.from('opportunities').insert({ ...data, user_id: user.id });
     }
     setSaving(false);
     onSave();
@@ -108,10 +109,11 @@ export default function Pipeline() {
   useEffect(() => { load(); }, []);
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
     const [o, a, c] = await Promise.all([
-      supabase.from('opportunities').select('*, accounts(name), contacts(first_name,last_name)').order('created_at', { ascending: false }),
-      supabase.from('accounts').select('id,name').order('name'),
-      supabase.from('contacts').select('id,first_name,last_name').order('last_name')
+      supabase.from('opportunities').select('*, accounts(name), contacts(first_name,last_name)').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('accounts').select('id,name').eq('user_id', user.id).order('name'),
+      supabase.from('contacts').select('id,first_name,last_name').eq('user_id', user.id).order('last_name')
     ]);
     setOpps(o.data || []);
     setAccounts(a.data || []);
