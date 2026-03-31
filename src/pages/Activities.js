@@ -26,11 +26,12 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
     setSaving(true);
     setError('');
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       let result;
       if (activity?.id) {
         result = await supabase.from('activities').update(sanitize(form)).eq('id', activity.id);
       } else {
-        result = await supabase.from('activities').insert(sanitize(form));
+        result = await supabase.from('activities').insert({ ...sanitize(form), user_id: user.id });
       }
       if (result.error) { setError('Save failed: ' + result.error.message); setSaving(false); return; }
       setSaving(false);
@@ -45,7 +46,6 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
       <div className="modal-sheet" onClick={e => e.stopPropagation()}>
         <div className="modal-handle" />
         <div className="modal-title">{activity?.id ? 'Edit Activity' : 'Log Activity'}</div>
-
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {TYPES.map(t => (
             <button key={t} onClick={() => set('type', t)} style={{
@@ -59,7 +59,6 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
             </button>
           ))}
         </div>
-
         <div className="form-group">
           <label className="form-label">Subject *</label>
           <input className="form-input" value={form.subject} onChange={e => set('subject', e.target.value)} placeholder="Discussed Typar spec inclusion..." />
@@ -67,14 +66,14 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
         <div className="form-group">
           <label className="form-label">Account</label>
           <select className="form-select" value={form.account_id || ''} onChange={e => set('account_id', e.target.value)}>
-            <option value="">{'\u2014'} No Account {'\u2014'}</option>
+            <option value="">-- No Account --</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label className="form-label">Contact</label>
           <select className="form-select" value={form.contact_id || ''} onChange={e => set('contact_id', e.target.value)}>
-            <option value="">{'\u2014'} No Contact {'\u2014'}</option>
+            <option value="">-- No Contact --</option>
             {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </select>
         </div>
@@ -86,9 +85,7 @@ function ActivityModal({ activity, accounts, contacts, onClose, onSave }) {
           <label className="form-label">Notes</label>
           <textarea className="form-input" value={form.notes || ''} onChange={e => set('notes', e.target.value)} rows={4} placeholder="What happened? Next steps?" style={{ resize: 'vertical' }} />
         </div>
-
         {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8 }}>{error}</div>}
-
         <button className="btn-primary" onClick={save} disabled={saving || !form.subject}>
           {saving ? 'Saving...' : 'Save Activity'}
         </button>
@@ -108,10 +105,11 @@ export default function Activities() {
   useEffect(() => { load(); }, []);
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
     const [a, ac, c] = await Promise.all([
-      supabase.from('activities').select('*, accounts(name), contacts(first_name,last_name)').order('activity_date', { ascending: false }),
-      supabase.from('accounts').select('id,name').order('name'),
-      supabase.from('contacts').select('id,first_name,last_name').order('last_name')
+      supabase.from('activities').select('*, accounts(name), contacts(first_name,last_name)').eq('user_id', user.id).order('activity_date', { ascending: false }),
+      supabase.from('accounts').select('id,name').eq('user_id', user.id).order('name'),
+      supabase.from('contacts').select('id,first_name,last_name').eq('user_id', user.id).order('last_name')
     ]);
     setActivities(a.data || []);
     setAccounts(ac.data || []);
@@ -119,7 +117,6 @@ export default function Activities() {
   }
 
   const filtered = activities.filter(a => typeFilter === 'All' || a.type === typeFilter);
-
   const typeEmoji = { Call: '\uD83D\uDCDE', Visit: '\uD83C\uDFE2', Email: '\u2709\uFE0F', Note: '\uD83D\uDCDD', Demo: '\uD83C\uDFAF' };
 
   const formatDate = (d) => {
@@ -137,7 +134,6 @@ export default function Activities() {
         <div className="page-title">Activity</div>
         <div className="page-subtitle">{activities.length} total logs</div>
       </div>
-
       <div style={{ display: 'flex', gap: 6, padding: '10px 12px', overflowX: 'auto' }}>
         {['All', ...TYPES].map(t => (
           <button key={t} onClick={() => setTypeFilter(t)} style={{
@@ -151,15 +147,12 @@ export default function Activities() {
           </button>
         ))}
       </div>
-
       {filtered.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-secondary)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>{'\uD83D\uDCCB'}</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>No activity yet</div>
           <div style={{ fontSize: 14, marginTop: 6 }}>Log calls, visits, and emails here</div>
         </div>
       )}
-
       <div>
         {filtered.map(activity => (
           <div key={activity.id} className="list-item" onClick={() => { setSelected(activity); setShowModal(true); }}>
@@ -167,7 +160,7 @@ export default function Activities() {
             <div style={{ flex: 1 }}>
               <div className="item-name" style={{ fontSize: 14 }}>{activity.subject}</div>
               <div className="item-sub">
-                {activity.accounts?.name || ''}{activity.contacts ? ` \u00b7 ${activity.contacts.first_name} ${activity.contacts.last_name}` : ''}
+                {activity.accounts?.name || ''}{activity.contacts ? ` - ${activity.contacts.first_name} ${activity.contacts.last_name}` : ''}
               </div>
               {activity.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '220px' }}>{activity.notes}</div>}
             </div>
@@ -175,14 +168,13 @@ export default function Activities() {
           </div>
         ))}
       </div>
-
       <button className="fab" onClick={() => { setSelected(null); setShowModal(true); }}>+</button>
-
       {showModal && (
         <ActivityModal
           activity={selected}
           accounts={accounts}
-          contacts={contacts}
+          contacts={contacts
+          }
           onClose={() => { setShowModal(false); setSelected(null); }}
           onSave={() => { setShowModal(false); setSelected(null); load(); }}
         />
